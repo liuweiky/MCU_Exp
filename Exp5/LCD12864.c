@@ -236,6 +236,7 @@ void main()
 	while (1)
 	{
 		UCHAR res = get_ad_result(0);
+		// Adjust weight here
 		res = res == 0 ? 0 : (res + 1) * 2;
 		display_weight(res);
 	}
