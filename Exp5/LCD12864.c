@@ -237,7 +237,7 @@ void main()
 	{
 		UCHAR res = get_ad_result(0);
 		// Adjust weight here
-		res = res == 0 ? 0 : (res + 1) * 2;
+		res = res == 0 ? 0 : (res) * 2;
 		display_weight(res);
 	}
 }
