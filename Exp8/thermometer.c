@@ -25,13 +25,13 @@ sbit heater = P1^1;
 
 int M = 256, N = 34, X = 0;
 int target_temp = 25, cur_temp = 100;
-int prev_temp = 0;	// (temp)k-1, current is (temp)k
+int cur_err = 0, prev_err = 0, prev_prev_err = 0;	// (temp)k-2, (temp)k-1, current is (temp)k
 int err_integral = 0; // integral term
 
 UCHAR key_delay = 0;
 
-int kp = 20;
-int ki = 50;
+int kp = 200;
+int ki = 800;
 int kd = 0;
 
 int t1_cnt = 0, integral_reset = 0;
@@ -233,7 +233,7 @@ void write_byte_ds18b20(UCHAR byte)
 		DQ = 1;
 		
 		byte >>= 1;
-		delay_1us(25);
+		delay_1us(40);
 	}
 }
 
@@ -259,13 +259,10 @@ UCHAR get_temp()
 	UCHAR low8, high8, t;
 	UINT res;
 	while(reset_ds18b20());
-	cur_temp = 50;
 	write_byte_ds18b20(0xCC);
 	write_byte_ds18b20(0x44);
 	
 	while(reset_ds18b20());
-	
-	cur_temp = 51;
 	write_byte_ds18b20(0xCC);
 	write_byte_ds18b20(0xBE);
 	
@@ -275,7 +272,7 @@ UCHAR get_temp()
 	res = high8;
 	res <<= 8;
 	res |= low8;
-	t = res * 0.0625;
+	t = res * 0.0625;		// div by 16: S S S S S 2^6 2^5 2^4 | 2^3 2^2 2^1 2^0 2^-1 2^-2 2^-3 2^-4
 	return t;
 }
 
@@ -305,19 +302,26 @@ void init_all()
 
 void pid()
 {
-	int res;
-	int cur_err = target_temp - cur_temp;
-	int prev_err = target_temp - prev_temp;
+	int res, delta;
+	//int cur_err = target_temp - cur_temp;
+	//int prev_err = target_temp - prev_temp;
+	
+	prev_prev_err = prev_err;
+	prev_err = cur_err;
+	
+	cur_err = target_temp - cur_temp;
 	
 	/*if (cur_err > 0 && err_integral < 30000 - cur_err)
 		err_integral += cur_err;	// integral
 	else if (cur_err < 0 && err_integral > -30000 - cur_err)
 		err_integral += cur_err;*/
 	
-	res = kp * cur_err + ki * err_integral + kd * (cur_err - prev_err);
+	delta = kp * (cur_err - prev_err) + ki * cur_err + kd * (cur_err - 2 * prev_err + prev_prev_err);
+	
+	res = cur_temp + delta;
 	
 	if (res <= 0)
-		N = 1;
+		N = 0;
 	else if (res > M)
 		N = M;
 	else
@@ -366,8 +370,6 @@ t1_int1() interrupt 3
 	
 	t1_cnt = 0;
 	
-	
-	
 	display_temp();
 	
 	TH1 = 0x3C;
@@ -383,14 +385,14 @@ void main()
 			while (j--);
 	while (1)
 	{
+		/*delay_1us(65535);
 		delay_1us(65535);
 		delay_1us(65535);
 		delay_1us(65535);
 		delay_1us(65535);
 		delay_1us(65535);
-		delay_1us(65535);
-		delay_1us(65535);
-		prev_temp = cur_temp;
+		delay_1us(65535);*/
+		//prev_temp = cur_temp;
 		cur_temp = get_temp();
 	}
 }
